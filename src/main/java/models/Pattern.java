@@ -1,5 +1,6 @@
 package models;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class Pattern {
@@ -27,6 +28,14 @@ public class Pattern {
    
 	public void addStops(List<StopSequence> stops) {
 		this.stops = stops;
+	}
+	
+	public Pattern clone() {
+		Pattern p = new Pattern(pattern_id, pattern_name, direction_id, reverse_pattern, encoded_polyline, stop_ratio);
+		p.stops = new ArrayList<StopSequence>();
+		p.stops.addAll(stops);
+		
+		return p;
 	}
 	
 }

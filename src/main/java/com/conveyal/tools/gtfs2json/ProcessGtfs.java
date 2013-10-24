@@ -459,6 +459,45 @@ public class ProcessGtfs  {
 				if(tripPatternFrequencyMap.containsKey(routeId)) {
 					for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
 						if(patternMap.containsKey(patternId)) {
+							Pattern p;
+							
+							p = patternMap.get(patternId).clone();
+							p.stops = null;
+							r.addPattern(p);
+								
+						}
+					}
+				}
+					
+				agencyGroup.addRoute(r);
+			}
+			
+			File dir = new File("data");
+			dir.mkdir();
+			
+			File f = new File(dir, "index.json");
+			
+			if (!f.exists()) {
+				f.createNewFile();
+			}
+ 
+			FileWriter fileWriter = new FileWriter(f);
+			BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+			bufferedWriter.write(toJson(agencyGroup, true));
+			bufferedWriter.close();
+
+			
+			agencyGroup = new AgencyGroup(agency);
+			
+			for(Long routeId : agencyIdRouteIdMap.get(agencyId)) {
+				
+				Route route = routeMap.get(routeId);
+				
+				models.Route r = new models.Route(route);
+				
+				if(tripPatternFrequencyMap.containsKey(routeId)) {
+					for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
+						if(patternMap.containsKey(patternId)) {
 							Pattern p = patternMap.get(patternId);
 							r.addPattern(p);
 						}
@@ -470,16 +509,55 @@ public class ProcessGtfs  {
 			
 			agencyGroup.buildStopList(this.stopMap);
 			
-			File f = new File("data.json");
+			f = new File(dir, "index_full.json");
 			
 			if (!f.exists()) {
 				f.createNewFile();
 			}
  
-			FileWriter fileWriter = new FileWriter(f);
-			BufferedWriter bufferedWriter = new BufferedWriter(fileWriter);
+			fileWriter = new FileWriter(f);
+			bufferedWriter = new BufferedWriter(fileWriter);
 			bufferedWriter.write(toJson(agencyGroup, true));
 			bufferedWriter.close();
+			
+			for(Long routeId : agencyIdRouteIdMap.get(agencyId)) {
+				
+				agencyGroup = new AgencyGroup(agency);
+				
+				Route route = routeMap.get(routeId);
+				
+				models.Route r = new models.Route(route);
+				
+				if(tripPatternFrequencyMap.containsKey(routeId)) {
+					for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
+						if(patternMap.containsKey(patternId)) {
+							Pattern p = patternMap.get(patternId);
+							r.addPattern(p);
+						}
+					}
+				}
+			
+				agencyGroup.addRoute(r);
+				
+				agencyGroup.buildStopList(this.stopMap);
+				
+				File routeDir = new File(dir, "rotues"); 
+				
+				routeDir.mkdir();
+				
+				f = new File(routeDir, routeId + ".json");
+				
+				if (!f.exists()) {
+					f.createNewFile();
+				}
+	 
+				fileWriter = new FileWriter(f);
+				bufferedWriter = new BufferedWriter(fileWriter);
+				bufferedWriter.write(toJson(agencyGroup, true));
+				bufferedWriter.close();
+			}
+			
+			
 		}
 	}
 	
