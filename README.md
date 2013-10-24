@@ -7,5 +7,10 @@ mvn package
 
 java -jar target/gtfs2json.jar path/to/gtfs.zip 
 
+
+Options:  -r  to export a routes directory with route specific json files.
+
+
+
 Writes  data to data/ in working directory.
 
