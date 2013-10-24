@@ -442,7 +442,7 @@ public class ProcessGtfs  {
 		}
 	}
 
-	public void exportJson() throws JsonMappingException, JsonGenerationException, IOException {
+	public void exportJson(Boolean exportRoutes) throws JsonMappingException, JsonGenerationException, IOException {
 		
 		for(Long agencyId : agencyMap.keySet()) {
 			
@@ -520,44 +520,47 @@ public class ProcessGtfs  {
 			bufferedWriter.write(toJson(agencyGroup, true));
 			bufferedWriter.close();
 			
-			for(Long routeId : agencyIdRouteIdMap.get(agencyId)) {
-				
-				agencyGroup = new AgencyGroup(agency);
-				
-				Route route = routeMap.get(routeId);
-				
-				models.Route r = new models.Route(route);
-				
-				if(tripPatternFrequencyMap.containsKey(routeId)) {
-					for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
-						if(patternMap.containsKey(patternId)) {
-							Pattern p = patternMap.get(patternId);
-							r.addPattern(p);
+			
+			if(exportRoutes) {
+			
+				for(Long routeId : agencyIdRouteIdMap.get(agencyId)) {
+					
+					agencyGroup = new AgencyGroup(agency);
+					
+					Route route = routeMap.get(routeId);
+					
+					models.Route r = new models.Route(route);
+					
+					if(tripPatternFrequencyMap.containsKey(routeId)) {
+						for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
+							if(patternMap.containsKey(patternId)) {
+								Pattern p = patternMap.get(patternId);
+								r.addPattern(p);
+							}
 						}
 					}
+				
+					agencyGroup.addRoute(r);
+					
+					agencyGroup.buildStopList(this.stopMap);
+					
+					File routeDir = new File(dir, "routes"); 
+					
+					routeDir.mkdir();
+					
+					f = new File(routeDir, routeId + ".json");
+					
+					if (!f.exists()) {
+						f.createNewFile();
+					}
+		 
+					fileWriter = new FileWriter(f);
+					bufferedWriter = new BufferedWriter(fileWriter);
+					bufferedWriter.write(toJson(agencyGroup, true));
+					bufferedWriter.close();
 				}
-			
-				agencyGroup.addRoute(r);
 				
-				agencyGroup.buildStopList(this.stopMap);
-				
-				File routeDir = new File(dir, "routes"); 
-				
-				routeDir.mkdir();
-				
-				f = new File(routeDir, routeId + ".json");
-				
-				if (!f.exists()) {
-					f.createNewFile();
-				}
-	 
-				fileWriter = new FileWriter(f);
-				bufferedWriter = new BufferedWriter(fileWriter);
-				bufferedWriter.write(toJson(agencyGroup, true));
-				bufferedWriter.close();
 			}
-			
-			
 		}
 	}
 	
