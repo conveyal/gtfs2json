@@ -1,6 +1,9 @@
 package models;
 
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
 
+@JsonSerialize(include=Inclusion.NON_NULL)
 public class StopSequence implements Comparable<StopSequence> {
 	
 	public Long stop_id;

@@ -80,7 +80,7 @@ public class ProcessGtfs  {
 		
 	}
 	
-	public void loadGtfs() {
+	public void loadGtfs(String path) {
 		
 		GtfsReader reader = new GtfsReader();
     	GtfsDaoImpl store = new GtfsDaoImpl();
@@ -97,7 +97,7 @@ public class ProcessGtfs  {
     	
     	try {
     		
-    		File gtfsFile = new File("data/gtfs.zip");
+    		File gtfsFile = new File(path);
     		
     		reader.setInputLocation(gtfsFile);
         	reader.setEntityStore(store);
@@ -541,7 +541,7 @@ public class ProcessGtfs  {
 				
 				agencyGroup.buildStopList(this.stopMap);
 				
-				File routeDir = new File(dir, "rotues"); 
+				File routeDir = new File(dir, "routes"); 
 				
 				routeDir.mkdir();
 				

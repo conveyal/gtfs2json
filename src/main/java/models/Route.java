@@ -3,6 +3,10 @@ package models;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.codehaus.jackson.map.annotate.JsonSerialize;
+import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
+
+@JsonSerialize(include=Inclusion.NON_NULL)
 public class Route {
 
 	public String route_id;
