@@ -1,16 +1,20 @@
 package com.conveyal.tools.gtfs2json;
 
+import java.io.IOException;
+
 import org.apache.commons.cli.BasicParser;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.codehaus.jackson.JsonGenerationException;
+import org.codehaus.jackson.map.JsonMappingException;
 
 
 public class App 
 {
-    public static void main( String[] args )
+    public static void main( String[] args ) throws JsonMappingException, JsonGenerationException, IOException
     {
     	// create the command line parser
     	CommandLineParser parser = new BasicParser();
@@ -32,5 +36,10 @@ public class App
     	catch( ParseException exp ) {
     	    System.out.println( "Unexpected exception:" + exp.getMessage() );
     	}
+    	
+    	ProcessGtfs gtfsProcessor = new ProcessGtfs();
+    	gtfsProcessor.loadGtfs();
+    	
+    	gtfsProcessor.exportJson();
     }
 }
