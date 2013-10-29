@@ -14,6 +14,7 @@ import java.util.Set;
 
 import models.AgencyGroup;
 import models.Pattern;
+import models.PatternFrequency;
 import models.StopSequence;
 
 import org.codehaus.jackson.JsonFactory;
@@ -54,6 +55,8 @@ public class ProcessGtfs  {
 	
 	private Map<Long, Long> tripRouteMap = new HashMap<Long, Long>();
 	
+	private Map<Long, Long> groupedStopMap = new HashMap<Long, Long>();
+	
 	HashMap<String,String> shapePolylineMap = new HashMap<String,String>();
 	
 	private Map<Long, ArrayList<StopSequence>> tripStopTimeMap = new HashMap<Long, ArrayList<StopSequence>>();
@@ -74,10 +77,6 @@ public class ProcessGtfs  {
 	
 	public ProcessGtfs() {
 
-	}
-	
-	public void generateGroups() {
-		
 	}
 	
 	public void loadGtfs(String path) {
@@ -284,7 +283,7 @@ public class ProcessGtfs  {
 	        repackStopSequences();
 	        
 	        inferTripPatterns();
-	        
+	       
 	        calculateStopRatios();
 	        
     	}
@@ -321,14 +320,13 @@ public class ProcessGtfs  {
 	private void addTripPatternToLookup(Long routeId, Long tripId, Long patternId, ArrayList<StopSequence> stopTimes)
 	{
 		Long firstStopId = stopTimes.get(0).stop_id;
-		Integer firstStopHour = (stopTimes.get(0).stop_departure_time - (stopTimes.get(0).stop_departure_time % (60 * 60)))/ 60 / 60;
 		Long lastStopId = stopTimes.get(stopTimes.size() - 1).stop_id;
 		
 		if(!tripPatternFirstStopMap.containsKey(routeId)) {
 			
 			tripPatternFirstStopMap.put(routeId, new HashMap<Long, ArrayList<Long>>());
 			tripPatternFirstLastStopMap.put(routeId, new HashMap<Long, HashMap<Long, ArrayList<Long>>>());
-			tripPatternFrequencyMap.put(routeId, new HashMap<Long, HashMap<Integer,Double>>());
+			
 			tripPatternStopMap.put(routeId, new HashMap<Long, ArrayList<StopSequence>>());
 			
 		}
@@ -342,21 +340,13 @@ public class ProcessGtfs  {
 			tripPatternFirstLastStopMap.get(routeId).get(firstStopId).put(lastStopId, new ArrayList<Long>());
 		}
 		
-		if(!tripPatternFrequencyMap.get(routeId).containsKey(patternId))
-			tripPatternFrequencyMap.get(routeId).put(patternId, new HashMap<Integer, Double>());
-				
 		
-		if(!tripPatternFrequencyMap.get(routeId).get(patternId).containsKey(firstStopHour))
-			tripPatternFrequencyMap.get(routeId).get(patternId).put(firstStopHour, 0.0);
-			
-		tripPatternFrequencyMap.get(routeId).get(patternId).put(firstStopHour, tripPatternFrequencyMap.get(routeId).get(patternId).get(firstStopHour) + 1);
 		
 		tripPatternFirstStopMap.get(routeId).get(firstStopId).add(patternId);
 		
 		tripPatternFirstLastStopMap.get(routeId).get(firstStopId).get(lastStopId).add(patternId);
 		
 		tripPatternStopMap.get(routeId).put(patternId, stopTimes);
-		
 		
 		Trip trip = tripMap.get(tripId);
 			
@@ -371,14 +361,31 @@ public class ProcessGtfs  {
 			patternName = stopMap.get(firstStopId).getName() + " -- " + stopMap.get(lastStopId).getName();
 		}
 		
-		Pattern pattern = new Pattern(patternId.toString(), patternName, null, null, shapePolylineMap.get(tripShapeMap.get(tripId)), null);
+		Pattern pattern = new Pattern(patternId.toString(), patternName, trip.getDirectionId(), null, shapePolylineMap.get(tripShapeMap.get(tripId)), null, null);
 		
 		pattern.addStops(stopTimes);
 		
 		// TODO add pattern stop ratio
 		patternMap.put(patternId, pattern);
 	}
+	
+	public void updatePatternFrequency(Long routeId,Long patternId, ArrayList<StopSequence> stopTimes) {
+		
+		Integer firstStopHour = (stopTimes.get(0).stop_departure_time - (stopTimes.get(0).stop_departure_time % (60 * 60)))/ 60 / 60;
+	
+		if(!tripPatternFrequencyMap.containsKey(routeId)) 
+			tripPatternFrequencyMap.put(routeId, new HashMap<Long, HashMap<Integer,Double>>());
+		
+		if(!tripPatternFrequencyMap.get(routeId).containsKey(patternId))
+			tripPatternFrequencyMap.get(routeId).put(patternId, new HashMap<Integer, Double>());
+				
+		
+		if(!tripPatternFrequencyMap.get(routeId).get(patternId).containsKey(firstStopHour))
+			tripPatternFrequencyMap.get(routeId).get(patternId).put(firstStopHour, 0.0);
 			
+		tripPatternFrequencyMap.get(routeId).get(patternId).put(firstStopHour, tripPatternFrequencyMap.get(routeId).get(patternId).get(firstStopHour) + 1);
+	}
+	
 	private void inferTripPatterns()
 	{
 		System.out.println("Infering trip patterns...");
@@ -401,7 +408,9 @@ public class ProcessGtfs  {
 				addTripPatternToLookup(routeId, tripId, patternId, stopTimes);
 				
 				nextPatternId++;
-			}		
+			}
+			
+			updatePatternFrequency(routeId, patternId, stopTimes);
 		}
 		
 		System.out.println(nextPatternId + " patterns found.");
@@ -440,6 +449,27 @@ public class ProcessGtfs  {
 			return null;
 			
 		}
+	}
+	
+	public void groupStops() {
+		
+		// group stops based on name and proximity
+		
+		// step 1: find all stops with same names along a given route -- group those within max cut-off 
+		// step 2: find all stops within given proximity? 
+		
+		// infer stops?
+		if(false) {
+			
+		}
+		else {
+			
+			for(Long stopId : stopMap.keySet()) {
+				
+				groupedStopMap.put(stopId, stopId);
+		
+			}
+		}	
 	}
 
 	public void exportJson(Boolean exportRoutes) throws JsonMappingException, JsonGenerationException, IOException {
@@ -487,7 +517,7 @@ public class ProcessGtfs  {
 			bufferedWriter.close();
 
 			
-			agencyGroup = new AgencyGroup(agency);
+			agencyGroup =	  new AgencyGroup(agency);
 			
 			for(Long routeId : agencyIdRouteIdMap.get(agencyId)) {
 				
@@ -499,6 +529,7 @@ public class ProcessGtfs  {
 					for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
 						if(patternMap.containsKey(patternId)) {
 							Pattern p = patternMap.get(patternId);
+							p.frequency = new PatternFrequency(tripPatternFrequencyMap.get(routeId).get(patternId));
 							r.addPattern(p);
 						}
 					}
@@ -535,6 +566,7 @@ public class ProcessGtfs  {
 						for(Long patternId : tripPatternFrequencyMap.get(routeId).keySet()) {					
 							if(patternMap.containsKey(patternId)) {
 								Pattern p = patternMap.get(patternId);
+								p.frequency = new PatternFrequency(tripPatternFrequencyMap.get(routeId).get(patternId));
 								r.addPattern(p);
 							}
 						}
