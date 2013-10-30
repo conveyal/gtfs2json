@@ -66,7 +66,7 @@ public class ProcessGtfs  {
 	
 	private Map<Long, HashMap<Long, ArrayList<StopSequence>>> tripPatternStopMap = new HashMap<Long, HashMap<Long, ArrayList<StopSequence>>>();
 	private Map<Long, HashMap<Long,  ArrayList<Long>>> tripPatternFirstStopMap = new HashMap<Long, HashMap<Long, ArrayList<Long>>>();
-	private Map<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>> tripPatternFirstLastStopMap = new HashMap<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>>();
+	//private Map<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>> tripPatternFirstLastStopMap = new HashMap<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>>();
 	
 	private HashMap<Long, HashMap<Long,  HashMap<Integer,  Double>>> tripPatternFrequencyMap = new HashMap<Long, HashMap<Long,  HashMap<Integer,  Double>>>();
 
@@ -325,26 +325,16 @@ public class ProcessGtfs  {
 		if(!tripPatternFirstStopMap.containsKey(routeId)) {
 			
 			tripPatternFirstStopMap.put(routeId, new HashMap<Long, ArrayList<Long>>());
-			tripPatternFirstLastStopMap.put(routeId, new HashMap<Long, HashMap<Long, ArrayList<Long>>>());
-			
 			tripPatternStopMap.put(routeId, new HashMap<Long, ArrayList<StopSequence>>());
 			
 		}
 		
 		if(!tripPatternFirstStopMap.get(routeId).containsKey(firstStopId)) {
 			tripPatternFirstStopMap.get(routeId).put(firstStopId, new ArrayList<Long>());
-			tripPatternFirstLastStopMap.get(routeId).put(firstStopId, new HashMap<Long, ArrayList<Long>>());
 		}
-		
-		if(!tripPatternFirstLastStopMap.get(routeId).get(firstStopId).containsKey(lastStopId)) {
-			tripPatternFirstLastStopMap.get(routeId).get(firstStopId).put(lastStopId, new ArrayList<Long>());
-		}
-		
-		
 		
 		tripPatternFirstStopMap.get(routeId).get(firstStopId).add(patternId);
 		
-		tripPatternFirstLastStopMap.get(routeId).get(firstStopId).get(lastStopId).add(patternId);
 		
 		tripPatternStopMap.get(routeId).put(patternId, stopTimes);
 		
@@ -400,7 +390,7 @@ public class ProcessGtfs  {
 			
 			Long routeId = tripRouteMap.get(tripId);
 			
-			Long patternId = findExistingPattern(routeId, stopTimes);
+			Long patternId = findExistingPattern(routeId, tripId, stopTimes);
 			
 			if(patternId == null)
 			{
@@ -416,7 +406,7 @@ public class ProcessGtfs  {
 		System.out.println(nextPatternId + " patterns found.");
 	}
 	
-	private Long findExistingPattern(Long routeId, ArrayList<StopSequence> stopTimes)
+	private Long findExistingPattern(Long routeId, Long tripId, ArrayList<StopSequence> stopTimes)
 	{	
 		try {
 			ArrayList<Long> candidatePatterns = tripPatternFirstStopMap.get(routeId).get(stopTimes.get(0).stop_id);
@@ -440,6 +430,93 @@ public class ProcessGtfs  {
 				}
 				
 				return candidate;
+			}
+			
+			// if exact match failed look for pattern within known patterns
+			
+			for(Long candidate : tripPatternStopMap.get(routeId).keySet()) {
+				
+				ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
+				
+				Boolean firstStopFound = false;
+				int subPatternOffest = 0;
+				
+				Boolean matchFound = false;
+				
+				for(StopSequence patternStop : patternStops ) {
+					
+					StopSequence currentSubPatternStop = stopTimes.get(subPatternOffest);
+					
+					if(firstStopFound){
+						
+						if(currentSubPatternStop.stop_id.equals(patternStop.stop_id)){
+							subPatternOffest++;	
+						}
+						else {
+							matchFound = false;
+							break;
+						}
+					}
+					else {
+						if(currentSubPatternStop.stop_id.equals(patternStop.stop_id)) {
+							firstStopFound = true;
+							subPatternOffest++;
+							matchFound = true;
+						}
+					}
+				}
+				
+				if(subPatternOffest < stopTimes.size() - 1)
+					matchFound = false;
+				
+				
+				if(matchFound)
+					return candidate;
+				
+			}
+			
+			// look for new patterns that contain existing patterns -- replace old with longer
+			
+			for(Long candidate : tripPatternStopMap.get(routeId).keySet()) {
+				
+				ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
+				
+				Boolean firstStopFound = false;
+				int subPatternOffest = 0;
+				
+				Boolean matchFound = false;
+				
+				for(StopSequence patternStop : stopTimes ) {
+					
+					StopSequence currentSubPatternStop = patternStops.get(subPatternOffest);
+					
+					if(firstStopFound){
+						
+						if(currentSubPatternStop.stop_id.equals(patternStop.stop_id)){
+							subPatternOffest++;	
+						}
+						else {
+							matchFound = false;
+							break;
+						}
+					}
+					else {
+						if(currentSubPatternStop.stop_id.equals(patternStop.stop_id)) {
+							firstStopFound = true;
+							subPatternOffest++;
+							matchFound = true;
+						}
+					}
+				}
+		
+				if(subPatternOffest < patternStops.size() - 1)
+					matchFound = false;
+				
+				if(matchFound) {
+					addTripPatternToLookup(routeId, tripId, candidate, stopTimes);
+					
+					return candidate;
+				}
 			}
 			
 			return null;
