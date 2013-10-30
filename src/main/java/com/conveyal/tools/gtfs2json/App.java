@@ -24,15 +24,19 @@ public class App
     	Options options = new Options();
     	options.addOption( "r", "routes", false, "generate route-specific JSON exports" );
     	
+    	options.addOption( "m", "merge-stops", false, "merge stops based on name and distance" );
+    	
+    	
+    	
     	try {
     	    // parse the command line arguments
     	    CommandLine line = parser.parse( options, args );
     	    
-    	    ProcessGtfs gtfsProcessor = new ProcessGtfs();
-        	gtfsProcessor.loadGtfs(line.getArgs()[0]);
-   
         	Boolean exportRoutes = line.hasOption("routes");
+        	Boolean mergeStops = line.hasOption("merge-stops");
         		
+        	ProcessGtfs gtfsProcessor = new ProcessGtfs(mergeStops);
+        	gtfsProcessor.loadGtfs(line.getArgs()[0]);
         	gtfsProcessor.exportJson(exportRoutes);
         	
     	}

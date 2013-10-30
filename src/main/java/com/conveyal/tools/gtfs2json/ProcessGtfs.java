@@ -8,6 +8,7 @@ import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -15,6 +16,7 @@ import java.util.Set;
 import models.AgencyGroup;
 import models.Pattern;
 import models.PatternFrequency;
+import models.StopGroup;
 import models.StopSequence;
 
 import org.codehaus.jackson.JsonFactory;
@@ -31,6 +33,9 @@ import org.opentripplanner.util.model.EncodedPolylineBean;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import com.vividsolutions.jts.geom.GeometryFactory;
+import com.vividsolutions.jts.geom.Point;
+import com.vividsolutions.jts.geom.Polygon;
+import com.vividsolutions.jts.index.strtree.STRtree;
 
 
 public class ProcessGtfs  {
@@ -38,6 +43,8 @@ public class ProcessGtfs  {
 	private static ObjectMapper mapper = new ObjectMapper();
     private static JsonFactory jf = new JsonFactory();
 	
+    public Boolean mergeStops;
+    
 	private Map<String, Long> agencyIdMap = new HashMap<String, Long>();
 	private Map<String, Long> routeIdMap = new HashMap<String, Long>();
 	private Map<String, Long> stopIdMap = new HashMap<String, Long>();
@@ -55,9 +62,14 @@ public class ProcessGtfs  {
 	
 	private Map<Long, Long> tripRouteMap = new HashMap<Long, Long>();
 	
-	private Map<Long, Long> groupedStopMap = new HashMap<Long, Long>();
+	private Map<Long, Long> mergedStopMap = new HashMap<Long, Long>();
+	private Map<Long, StopGroup> stopGroupMap = new HashMap<Long, StopGroup>();
 	
-	HashMap<String,String> shapePolylineMap = new HashMap<String,String>();
+	private HashMap<String,String> shapePolylineMap = new HashMap<String,String>();
+	
+	private	HashMap<Integer, HashSet<Long>> routeTypeStopMap = new HashMap<Integer, HashSet<Long>>();
+	
+	private	HashMap<Long, HashSet<Long>> stopRouteIdMap = new HashMap<Long, HashSet<Long>>();
 	
 	private Map<Long, ArrayList<StopSequence>> tripStopTimeMap = new HashMap<Long, ArrayList<StopSequence>>();
 	
@@ -75,7 +87,9 @@ public class ProcessGtfs  {
 	
 	private Map<String, List<ShapePoint>> shapePointIdMap = new HashMap<String, List<ShapePoint>>();
 	
-	public ProcessGtfs() {
+	public ProcessGtfs(Boolean mergeStops) {
+		
+		this.mergeStops =  mergeStops;
 
 	}
 	
@@ -258,6 +272,36 @@ public class ProcessGtfs  {
 	        }
 	        
 	        System.out.println("Trips loaded: " + tripCount); 
+	        	
+        	System.out.println("GtfsImporter: indexing stops by mode and route...");
+	    	
+	        for (StopTime gtfsStopTime : store.getAllStopTimes()) {
+	        	
+	        	stopId = stopIdMap.get(gtfsStopTime.getStop().getId().toString());
+	        	tripId = tripIdMap.get(gtfsStopTime.getTrip().getId().toString());
+	       	
+	        	routeId = tripRouteMap.get(tripId);
+	        	
+	        	Route route = routeMap.get(routeId);
+	        	
+	        	Integer routeType = route.getType();
+	        	
+	        	if(!routeTypeStopMap.containsKey(routeType)) 
+	        		routeTypeStopMap.put(routeType, new HashSet<Long>());
+	        	
+	        	routeTypeStopMap.get(routeType).add(stopId);
+	        	
+	        	if(!stopRouteIdMap.containsKey(stopId))
+	        		stopRouteIdMap.put(stopId, new HashSet<Long>());
+	        	
+	        	stopRouteIdMap.get(stopId).add(routeId);
+	
+	        }
+	        
+	        // merges stops or builds a no-op map of ids
+	        mergeStops(mergeStops);
+	        
+	        
 	        System.out.println("GtfsImporter: importing stopTimes...");
 	    	
 	        for (StopTime gtfsStopTime : store.getAllStopTimes()) {
@@ -265,7 +309,10 @@ public class ProcessGtfs  {
 	        	stopId = stopIdMap.get(gtfsStopTime.getStop().getId().toString());
 	        	tripId = tripIdMap.get(gtfsStopTime.getTrip().getId().toString());
 	       	
-	        	// assuming gtfs stop sequences start at 1 and increment by 1 isn't safe -- need to re-pack sequence positions after loading stop tims
+	        	// swap for merged stopId (or same id if merge is disabled)
+	        	stopId = mergedStopMap.get(stopId);
+	        	
+	        	// assuming gtfs stop sequences start at 1 and increment by 1 isn't safe -- need to re-pack sequence positions after loading stop times
 	        	StopSequence stopSequence = new StopSequence(stopId, gtfsStopTime.getStopSequence(), gtfsStopTime.getDepartureTime());
 	        	
 	        	if(!tripStopTimeMap.containsKey(tripId))
@@ -408,10 +455,6 @@ public class ProcessGtfs  {
 	
 	private Long findExistingPattern(Long routeId, Long tripId, ArrayList<StopSequence> stopTimes)
 	{	
-		if(stopTimes.get(0).stop_id == 1649 && stopTimes.get(stopTimes.size() -1).stop_id == 6367)
-			System.out.print("253 GROSVENOR");
-
-		
 		
 		try {
 			ArrayList<Long> candidatePatterns = tripPatternFirstStopMap.get(routeId).get(stopTimes.get(0).stop_id);
@@ -439,10 +482,7 @@ public class ProcessGtfs  {
 			// if exact match failed look for pattern within known patterns
 			
 			for(Long candidate : tripPatternStopMap.get(routeId).keySet()) {
-				
-				if(candidate == 169)
-					System.out.println("169 shady grove");
-				
+
 				ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
 				
 				Boolean firstStopFound = false;
@@ -537,34 +577,200 @@ public class ProcessGtfs  {
 			return null;
 		}
 		catch(Exception e) {
-			e.printStackTrace();
 			return null;
 			
 		}
 	}
 	
-	public void groupStops() {
+	public void mergeStopGroups(StopGroup sg1, StopGroup sg2) {
+		sg1.stops.addAll(sg2.stops);
+		//replace references for sg2 with sg1
+		for(Long stopId : sg2.stops){
+			stopGroupMap.put(stopId, sg1);
+		}
+	}
+	
+	public void addStopToGroup(Long stopId, StopGroup sg) {
+		if(sg != null)
+			sg.stops.add(stopId);
+		else {
+			// create new group
+			sg = new StopGroup();
+			sg.stops.add(stopId);
+			stopGroupMap.put(stopId, sg);
+		}
+			
+	}
+	
+	public void groupStops(Long stopId1, Long stopId2) {
 		
-		// group stops based on name and proximity
+		StopGroup sg1 = stopGroupMap.get(stopId1);
+		StopGroup sg2 = stopGroupMap.get(stopId2);
 		
-		// step 1: find all stops with same names along a given route -- group those within max cut-off 
-		// step 2: find all stops within given proximity? 
+		// check for groups and merge
+		if(sg1 != null && sg2 != null) {
+			mergeStopGroups(sg1, sg2);
+		}
+		else {
+			if(sg1 != null) 
+				addStopToGroup(stopId2, sg1);
+			else if(sg2 != null)
+				addStopToGroup(stopId1, sg2);
+			else
+				addStopToGroup(stopId1, null);
+		}
+	}
+	
+	public void mergeStops(Boolean mergeStops) {
+		
+		System.out.println("merging stops...");
+		System.out.println("gtfs stops: " + stopMap.keySet().size());
+		
+		
+		HashSet<Long> majorStops = new HashSet<Long>();
 		
 		// infer stops?
-		if(false) {
+		if(mergeStops) {
+			
+			STRtree stopIndex = new STRtree();
+			HashMap<Long, IndexedStop> indexedStopMap = new HashMap<Long, IndexedStop>();
+			
+			// index stops
+			for(Long stopId : stopMap.keySet()) {
+				Stop s = stopMap.get(stopId);
+		
+				ProjectedCoordinate pc = GeoUtils.convertLatLonToEuclidean(new Coordinate(s.getLon(), s.getLat()));
+				Point p = GeoUtils.projectedGeometryFactory.createPoint(pc);
+								
+				IndexedStop is = new IndexedStop();
+				is.stopId = stopId;
+				is.gtfsStop = s;
+				is.pc = pc;
+				is.p = p;
+				
+				stopIndex.insert(p.getEnvelopeInternal(), stopId);
+				
+				indexedStopMap.put(stopId, is);
+			}
+				
+			// TODO group by parent station id if set
+			
+			// group by name within radius 
+			
+			for(Long stopId1 : stopMap.keySet()) {
+				
+				IndexedStop is1 = indexedStopMap.get(stopId1);
+				
+				Polygon b = (Polygon) is1.p.buffer(100);
+				for(Long stopId2 : (List<Long>)stopIndex.query(b.getEnvelopeInternal())) {
+					IndexedStop is2 = indexedStopMap.get(stopId2);
+					
+					if(is1.gtfsStop.getName().equals(is2.gtfsStop.getName()) && !stopId1.equals(stopId2) ) {
+						groupStops(stopId1, stopId2);
+					}			
+				}
+			}	
+			
+			// group by radius 
+			
+			for(Long stopId1 : stopMap.keySet()) {
+				
+				IndexedStop is1 = indexedStopMap.get(stopId1);
+				
+				Polygon b = (Polygon) is1.p.buffer(25);
+				for(Long stopId2 : (List<Long>)stopIndex.query(b.getEnvelopeInternal())) {
+					IndexedStop is2 = indexedStopMap.get(stopId2);
+					
+					if(!stopId1.equals(stopId2) ) {
+						groupStops(stopId1, stopId2);
+					}			
+				}
+			}	
+			
+			// group by radius surrounding rail/metro stops 
+			
+			// find subway/metro stops: gtfs route type 1
+			if(routeTypeStopMap.containsKey(1))
+				majorStops.addAll(routeTypeStopMap.get(1));
+			
+			// find rail stops: gtfs route type 2
+			if(routeTypeStopMap.containsKey(2))
+				majorStops.addAll(routeTypeStopMap.get(2));
+			
+			for(Long stopId1 : majorStops) {
+				
+				IndexedStop is1 = indexedStopMap.get(stopId1);
+				
+				Polygon b = (Polygon) is1.p.buffer(250);
+				for(Long stopId2 : (List<Long>)stopIndex.query(b.getEnvelopeInternal())) {
+					IndexedStop is2 = indexedStopMap.get(stopId2);
+					
+					// grouping every stop within 250m of rail or subway?
+					// TODO this won't work in areas with dense/multi-line rail networks (NYC & London) 
+					// need to use Thiessen Buffer
+					if(!stopId1.equals(stopId2) ) {
+						groupStops(stopId1, stopId2);
+					}			
+				}
+			}	
+			
+			// find and add un-grouped stops
+			for(Long stopId : stopMap.keySet()) {
+				
+				if(!stopGroupMap.containsKey(stopId))
+					groupStops(stopId, stopId);
+			}	
 			
 		}
 		else {
 			
+			// a no-op operation to skip merge
+			
 			for(Long stopId : stopMap.keySet()) {
-				
-				groupedStopMap.put(stopId, stopId);
-		
+				groupStops(stopId, stopId);
 			}
 		}	
+		
+		// find primary stop for each stop group
+		// if there's a major stop it takes precedent  -- otherwise stop with most routes
+		
+		for(StopGroup gr : stopGroupMap.values()) {
+			if(gr.primaryStop == null) {
+				Integer maxRouteCount = 0;
+				for(Long stopId : gr.stops) {
+					if(majorStops.contains(stopId)) {
+						gr.primaryStop = stopId;
+						break;
+					}
+					
+					if(stopRouteIdMap.containsKey(stopId) && stopRouteIdMap.get(stopId).size() > maxRouteCount) {
+						maxRouteCount = stopRouteIdMap.get(stopId).size();
+						gr.primaryStop = stopId;
+						// not handling ties for now...
+					}
+				}
+			}
+		}
+		
+		// map merged stops to primary stop
+
+		HashSet<Long> primaryStops = new HashSet<Long>();
+				
+		for(Long stopId : stopGroupMap.keySet()) {
+			
+			if(stopGroupMap.get(stopId).primaryStop == null)
+				System.out.println("Stop not mapped to primary: " + stopId);
+			else {
+				primaryStops.add(stopGroupMap.get(stopId).primaryStop);
+				mergedStopMap.put(stopId, stopGroupMap.get(stopId).primaryStop);
+			}
+		}	
+		
+		System.out.println("merged stops: " + primaryStops.size());
 	}
 
 	public void exportJson(Boolean exportRoutes) throws JsonMappingException, JsonGenerationException, IOException {
+			
 		
 		for(Long agencyId : agencyMap.keySet()) {
 			
@@ -698,6 +904,14 @@ public class ProcessGtfs  {
 	        }
 	        mapper.writeValue(jg, pojo);
 	        return sw.toString();
+	}
+	
+	private class IndexedStop {
+		
+		public Long stopId;
+		public Stop gtfsStop;
+		public ProjectedCoordinate pc;
+		public Point p;
 	}
 }
 

@@ -9,7 +9,7 @@ import org.codehaus.jackson.map.annotate.JsonSerialize.Inclusion;
 @JsonSerialize(include=Inclusion.NON_NULL)
 public class Stop {
 	
-	 public String stop_id;
+	 public Long stop_id;
 	 public String stop_code; 
 	 public String stop_name;
 	 public String stop_desc; 
@@ -22,7 +22,7 @@ public class Stop {
 	 public List<PatternReference> patterns = new ArrayList<PatternReference>();
 	 
 	 public Stop(Long stopId, org.onebusaway.gtfs.model.Stop s) {
-		 stop_id = stopId.toString();
+		 stop_id = stopId;
 		 stop_code = s.getCode();
 		 stop_name = s.getName();
 		 stop_desc = s.getDirection();
