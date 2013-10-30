@@ -408,33 +408,40 @@ public class ProcessGtfs  {
 	
 	private Long findExistingPattern(Long routeId, Long tripId, ArrayList<StopSequence> stopTimes)
 	{	
+		if(stopTimes.get(0).stop_id == 1649 && stopTimes.get(stopTimes.size() -1).stop_id == 6367)
+			System.out.print("253 GROSVENOR");
+
+		
+		
 		try {
 			ArrayList<Long> candidatePatterns = tripPatternFirstStopMap.get(routeId).get(stopTimes.get(0).stop_id);
 			
-			if(candidatePatterns == null)
-				return null;
-			
-			for(Long candidate : candidatePatterns)
+			if(candidatePatterns != null)
 			{
-				ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
-				
-				if(patternStops.size() != stopTimes.size())
-					continue;
-				
-				int index = 0;
-				
-				for(StopSequence patternStop : patternStops)
+				for(Long candidate : candidatePatterns)
 				{
-					if(!patternStop.stop_id.equals(stopTimes.get(index).stop_id));
+					ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
+					
+					if(patternStops.size() != stopTimes.size())
 						continue;
+					
+					int index = 0;
+					
+					for(StopSequence patternStop : patternStops)
+					{
+						if(!patternStop.stop_id.equals(stopTimes.get(index).stop_id));
+							continue;
+					}
+					
+					return candidate;
 				}
-				
-				return candidate;
 			}
-			
 			// if exact match failed look for pattern within known patterns
 			
 			for(Long candidate : tripPatternStopMap.get(routeId).keySet()) {
+				
+				if(candidate == 169)
+					System.out.println("169 shady grove");
 				
 				ArrayList<StopSequence> patternStops = tripPatternStopMap.get(routeId).get(candidate);
 				
@@ -445,6 +452,10 @@ public class ProcessGtfs  {
 				
 				for(StopSequence patternStop : patternStops ) {
 					
+					if(stopTimes.size() <= subPatternOffest) {
+						break;
+					}
+					 
 					StopSequence currentSubPatternStop = stopTimes.get(subPatternOffest);
 					
 					if(firstStopFound){
@@ -488,6 +499,10 @@ public class ProcessGtfs  {
 				
 				for(StopSequence patternStop : stopTimes ) {
 					
+					if(patternStops.size() <= subPatternOffest) {
+						break;
+					}
+					
 					StopSequence currentSubPatternStop = patternStops.get(subPatternOffest);
 					
 					if(firstStopFound){
@@ -522,7 +537,7 @@ public class ProcessGtfs  {
 			return null;
 		}
 		catch(Exception e) {
-		
+			e.printStackTrace();
 			return null;
 			
 		}
