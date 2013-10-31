@@ -80,7 +80,7 @@ public class ProcessGtfs  {
 	private Map<Long, HashMap<Long,  ArrayList<Long>>> tripPatternFirstStopMap = new HashMap<Long, HashMap<Long, ArrayList<Long>>>();
 	//private Map<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>> tripPatternFirstLastStopMap = new HashMap<Long, HashMap<Long, HashMap<Long,  ArrayList<Long>>>>();
 	
-	private HashMap<Long, HashMap<Long,  HashMap<Integer,  Double>>> tripPatternFrequencyMap = new HashMap<Long, HashMap<Long,  HashMap<Integer,  Double>>>();
+	private HashMap<Long, HashMap<Long,  HashMap<Long, HashMap<Integer,  Double>>>> tripPatternFrequencyMap = new HashMap<Long, HashMap<Long,  HashMap<Long, HashMap<Integer,  Double>>>>();
 
 	//private Map<Long, ArrayList<StopSequence>> tripRouteMap = new HashMap<Long, ArrayList<StopSequence>>();
 	//private Map<Long,  Map<Long,  Double>> tripPatternStopRatioMap = new HashMap<Long,  Map<Long,  Double>>();
