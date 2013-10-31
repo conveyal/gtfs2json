@@ -37,6 +37,7 @@
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                   <mainClass>com.conveyal.tools.gtfs2json.App</mainClass>
                 </transformer>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
               </transformers>
             </configuration>
           </execution>
@@ -86,10 +87,22 @@
     
     <dependency>
       <groupId>org.geotools</groupId>
-      <artifactId>gt-main</artifactId>
+      <artifactId>gt-opengis</artifactId>
       <version>9.4</version>
     </dependency>
-    
+
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-api</artifactId>
+      <version>9.4</version>
+    </dependency>
+        
+    <dependency>
+      <groupId>org.geotools</groupId>
+      <artifactId>gt-epsg-hsql</artifactId>
+      <version>9.4</version>
+    </dependency>
+
     <dependency>
       <groupId>org.opentripplanner</groupId>
       <artifactId>opentripplanner-utils</artifactId>
@@ -107,6 +120,13 @@
       <artifactId>jackson-mapper-asl</artifactId>
       <version>1.9.5</version>
     </dependency>
-       
+
+    <dependency>
+      <groupId>gov.sandia.foundry</groupId>
+      <artifactId>cognitive-foundry</artifactId>
+      <version>3.3.3</version>
+    </dependency>       
+
+            
   </dependencies>
 </project>
