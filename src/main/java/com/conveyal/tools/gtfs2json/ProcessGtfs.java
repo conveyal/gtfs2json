@@ -701,7 +701,7 @@ public class ProcessGtfs  {
 				
 				IndexedStop is1 = indexedStopMap.get(stopId1);
 				
-				Polygon b = (Polygon) is1.p.buffer(250);
+				Polygon b = (Polygon) is1.p.buffer(100);
 				for(Long stopId2 : (List<Long>)stopIndex.query(b.getEnvelopeInternal())) {
 					IndexedStop is2 = indexedStopMap.get(stopId2);
 					
@@ -749,6 +749,8 @@ public class ProcessGtfs  {
 						// not handling ties for now...
 					}
 				}
+				
+				
 			}
 		}
 		
@@ -762,6 +764,7 @@ public class ProcessGtfs  {
 				System.out.println("Stop not mapped to primary: " + stopId);
 			else {
 				primaryStops.add(stopGroupMap.get(stopId).primaryStop);
+				
 				mergedStopMap.put(stopId, stopGroupMap.get(stopId).primaryStop);
 			}
 		}	
